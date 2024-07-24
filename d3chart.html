@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chart</title>
+    <style>
+        *{margin:0; padding:0}
+        button{
+            background:#fff;
+            border:2px solid #782fff;
+            padding:8px 15px;
+            color:#782fff;
+            border-radius:15px;
+            margin:0 5px;
+            cursor:pointer
+        }
+        button:hover, button.active{
+            background-color:#782fff;
+            color:#fff
+        }
+        #wrap{
+            margin:50px 20px
+        }
+        #chart{margin:50px 0}
+        #chart svg{overflow:visible}
+        .axis{font:400 11px/1 'montserrat'; color:#666}
+        .grid-y .tick:first-child line{stroke:#444 !important}
+        .tooltip{font-family:montserrat}
+    </style>
+</head>
+<body>
+
+<div id="wrap">
+    <div class="btns">
+        <button type="button" data-count="7">7 Day</button>
+        <button type="button" data-count="15">15 Day</button>
+        <button type="button" data-count="30">30 Day</button>
+        <button type="button" data-count="60">60 Day</button>
+        <button type="button" data-count="90">90 Day</button>
+        <button type="button" data-count="all">All Day</button>
+    </div>
+    <div id="chart"></div>
+</div>
+
+<script src="//d3js.org/d3.v4.js"></script>
+<script>
+    // set data
+    const datas = [];
+    const part = [];
+    for(var i = 0; i < 7; i++){
+        const sDate = new Date();
+        sDate.setDate(sDate.getDate() - i);
+        sDate.setHours(12, 0, 0, 0);
+        datas.push({ 
+            id: i,
+            date: new Date(sDate),
+            value: Math.floor(Math.random()*1000*i) 
+        });
+    }
+    
+    
+	// set layout
+    const margin = { top:20, right:36, bottom:20, left:36 };
+    const width = 900;
+    const height = 320;
+    const innerWidth = width - margin.left - margin.right;
+    const chart = d3.select('#chart');
+    const container = chart.append('svg')
+        .datum(datas)
+        .attr('width', 900)
+        .attr('height', 320);
+	const defs = container.append('defs');
+    const clip = defs.append('clipPath')
+        .attr('id', 'clip')
+        .append('rect')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', innerWidth)
+        .attr('height', height-margin.top-margin.bottom);
+    const grd = defs.append('linearGradient')
+        .attr('id', 'grd')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', 0)
+        .attr('y2', 1);
+    grd.append('stop')
+        .attr('offset', 0)
+        .style('stop-color', '#782fff')
+        .style('stop-opacity', 0.15);
+    grd.append('stop')
+        .attr('offset', 1)
+        .style('stop-color', '#782fff')
+        .style('stop-opacity', 0);
+
+    const zoom = d3.zoom()
+        .scaleExtent([1, datas.length / 7])
+        .extent([[0, 0], [innerWidth, height]])
+        .translateExtent([[-1, 0], [innerWidth, height]])
+        .on('zoom', zoomed);
+
+    // set X
+    const x = d3.scaleTime()
+                .range([0, innerWidth])
+                .domain(d3.extent(datas, d => d.date));
+    const gx = container.append('g')
+        .attr('class', 'x-axis axis');
+    const gridX = container.append('g')
+		.attr('class', 'grid-x');
+
+    // set Y
+	const y = d3.scaleLinear()
+                .range([height-margin.top-margin.bottom, margin.top])
+                .domain(d3.extent(datas, d => d.value));
+    const gy = container.append('g')
+        .attr('class', 'y-axis axis');
+    const gridY = container.append('g').attr('class', 'grid-y');
+    const setYAxis = (g, y) => {
+        g.attr('transform', `translate(${innerWidth}, 0)`)
+        .call(d3.axisRight(y).ticks(5))
+        .call(g => {
+            g.select('.domain').remove();
+            g.selectAll('line').remove();
+            g.selectAll('text').attr('fill', '#666');
+        })
+    }
+    
+    const setGridY = (g, y) => {
+        g.call(d3.axisRight(y)
+            .tickSize(innerWidth)
+            .tickArguments([5])
+            .tickSizeOuter(0)
+        )
+        .call(g => {
+            g.select('.domain').remove();
+            g.selectAll('text').remove();
+            g.selectAll('line').attr('stroke', '#e6e6e6').attr('stroke-width', 1).attr('fill', 'none');
+        })
+    }
+
+    // set graph wrap
+    const shape = container.append('g')
+        .attr('class', 'shape')
+        .attr('clip-path', 'url(#clip)');
+        
+    const rect = container.append('rect')
+        .attr('width', innerWidth)
+        .attr('height', height-margin.bottom-margin.top)
+        .attr('fill', 'transparent')
+        .on('mouseleave', () => {
+            dot.attr('visibility', 'hidden').attr('opacity', 0);
+            tooltip.attr('visibility', 'hidden').attr('opacity', 0);
+        });
+
+    const linePath = shape.append('path')
+        .attr('fill', 'none')
+        .attr('stroke', '#782fff')
+        .attr('stroke-width', 1);
+
+    const areaPath = shape.append('path')
+        .attr('fill', 'url(#grd)');       
+
+    // set datalabel
+    const datalabel = container.append('g')
+        .attr('class', 'datalabel')
+        .attr('text-anchor', 'middle')
+        .attr('clip-path', 'url(#clip)')
+        .style('font', '600 10px/1 "Mont"')
+        .style('pointer-events', 'none');
+    
+    // set dot
+    const dot = container.append('g').attr('class', 'dot').attr('visibility', 'visible').attr('opacity', 0).style('pointer-events', 'none');
+    dot.append('circle')
+        .attr('class', 'outer')
+        .attr('r', 8)
+        .attr('fill', '#782fff')
+        .attr('opacity', 0.3);
+    dot.append('circle')
+        .attr('class', 'inner')
+        .attr('r', 2)
+        .attr('fill', '#782fff')
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 1);
+
+    // set tooltip
+    const tooltip = container.append('g')
+        .attr('class', 'tooltip')
+        .attr('opacity', 0)
+        .attr('visibility', 'hidden')
+        .style('pointer-events', 'none');
+    const path1 = tooltip.append('path')
+        .attr('fill', 'none')
+        .attr('stroke', '#000')
+        .attr('stroke-opacity', 0.09)
+        .attr('stroke-width', 3)
+        .attr('transform', 'translate(1, 1)');
+    const path2 = tooltip.append('path')
+        .attr('fill', 'none')
+        .attr('stroke', '#000')
+        .attr('stroke-opacity', 0.15)
+        .attr('stroke-width', 1)
+        .attr('transform', 'translate(1, 1)');
+    const path3 = tooltip.append('path')
+        .attr('fill', 'rgba(247,247,247,.85)')
+        .attr('stroke', '#782fff')
+        .attr('stroke-width', 1);
+    const text = tooltip.append('text')
+        .attr('fill', '#333')
+        .attr('font-size', '12px')
+        .attr('font-weight', 500)
+        .attr('x', 8)
+        .attr('y', 18);
+    const date = text.append('tspan').lower()
+        .attr('dy', '0em')
+        .attr('font-size', '10px');
+    const title = text.append('tspan')
+        .attr('dy', '1.5em')
+        .attr('x', 8)
+        .attr('fill', '#782fff')
+        .text('●')
+        .append('tspan')
+        .attr('fill', '#333')
+        .text('  PROFIT : ');
+    const profit = text.append('tspan')
+        .attr('font-weight', 700);
+
+
+    rect.call(zoom)
+        .call(zoom.scaleTo, datas.length / 7)
+        .call(zoom.translateTo, datas[0].date, datas[0].value);
+
+    function zoomed(){
+        const xz = d3.event.transform.rescaleX(x);
+        const yz = d3.event.transform.rescaleY(y);
+        const rate = d3.zoomTransform(this).k;
+        const step = Math.round(datas.length / (7*rate));
+		var yArr = [{
+			date:0,
+			value:0
+		}];
+
+        d3.extent(datas.filter(d => {
+            const dt = xz(d.date);
+            return dt > 0 && dt <= width;
+        }), (d, i) => {
+            if(d.id % Math.ceil(datas.length / (14*rate)) == 0){
+				yArr.push({
+					date: d.date,
+					value: d.value
+				});
+			}
+        })
+
+		// change X
+		const setXAxis = gx.selectAll('text')
+			.data(yArr, d => d);
+		gx.selectAll('text').remove();
+		setXAxis.enter()
+			.append('text')
+			.text(d => d3.timeFormat('%m/%d')(d.date))
+			.attr('fill', '#666')
+			.attr('text-anchor', 'middle')
+			.attr('x', function(d){ 
+				var tw = this.getBBox().width/2;
+				var posx = xz(d.date);
+                console.log(tw, posx)
+				if(innerWidth-tw <= posx){
+					return innerWidth-tw
+				} else{
+					if(tw >= posx){
+						return tw
+					} else if(tw < posx){
+						return posx
+					}
+				}
+			})
+			.attr('y', height - margin.top)
+			.attr('opacity', function(d){ 
+				var vw = innerWidth + this.getBBox().width/2;
+				var posx = xz(d.date);
+				return posx >= vw || posx < 0? 0: 1;
+			});
+		setXAxis.exit().remove();
+
+		setGridX = gridX.selectAll('path')
+			.data(yArr, d => d);
+		gridX.selectAll('path').remove();
+		setGridX.enter()
+			.append('path')
+			.attr('d', d => `M${xz(d.date)} ${margin.bottom} L${xz(d.date)} ${height-margin.top-margin.bottom}`)
+			.attr('stroke-width', 1)
+			.attr('stroke', '#e6e6e6')
+			.attr('fill', 'none')
+			.attr('opacity', function(d){
+				var vw = innerWidth + this.getBBox().width/2;
+				var posx = Math.floor(xz(d.date));
+				return posx > vw || posx < 0? 0: 1;
+			});
+
+		// change Y
+        const yExtent = d3.extent(datas.filter(d => {
+            var dt = xz(d.date);
+            return dt > -margin.left && dt <= width;
+        }), d =>{
+            return d.value
+        });
+        yz.domain([0, yExtent[1]]).nice([2]);
+        gy.call(setYAxis, yz);
+        gridY.call(setGridY, yz);
+
+		// change graph
+		var lineArr = [];
+        datas.filter(d => {
+            const dt = xz(d.date);
+            if(dt > rate*-2 && dt <= width+rate*2){
+                lineArr.push([dt, yz(d.value)]);
+            }
+        });
+		const area = d3.area();
+        area.y0(yz(0));
+        linePath.attr('d', d3.line()(lineArr));
+        areaPath.attr('d', area(lineArr));
+
+        // change datalabel
+		const labels = datalabel.selectAll('text')
+			.data(yArr, d => d);
+		datalabel.selectAll('text').remove();
+		labels.enter()
+			.append('text')
+			.text(d => d3.format(',')(d.value))
+			.attr('x', function(d){ 
+				var tw = this.getBBox().width/2;
+				var posx = xz(d.date);
+				if(innerWidth-tw <= posx){
+					return innerWidth-tw
+				} else{
+					if(tw >= posx){
+						return tw
+					} else if(tw < posx){
+						return posx
+					}
+				}
+			})
+			.attr('y', d => yz(d.value) - 10)
+			.attr('opacity', function(d){ 
+				var vw = innerWidth + this.getBBox().width/2;
+				var posx = xz(d.date);
+				return posx >= vw || posx < 0? 0: 1;
+			})
+			.attr('fill', '#782fff')
+			.attr('stroke', '#fff')
+			.attr('stroke-width', 2)
+			.append('tspan')
+			.attr('fill', '#782fff')
+			.attr('stroke', 'none')
+			.text(d => d3.format(',')(d.value))
+			.attr('x', function(d){ 
+				var tw = this.getComputedTextLength()/2;
+				var posx = xz(d.date);
+				if(innerWidth-tw <= posx){
+					return innerWidth-tw
+				} else{
+					if(tw >= posx){
+						return tw
+					} else if(tw < posx){
+						return posx
+					}
+				}
+			})
+			.attr('y', d => yz(d.value) - 10);
+		labels.exit().remove();
+
+        // change tooltip
+        rect.on('mousemove', mousemoved);
+        function mousemoved(){
+            const x0 = xz.invert(d3.mouse(this)[0]);
+            x0.setHours(12, 0, 0, 0);
+            var idx;
+            datas.some((obj, n) => {
+                if(obj.date == x0+''){
+                    idx = n;
+                    return true
+                }
+            });
+            const d = datas[idx];
+            date.text(d3.timeFormat('%A, %b %d, %Y')(x0));
+            profit.text(d3.format(',')(d.value));
+            const xx = text.node().getBBox().x;
+            const ww = text.node().getBBox().width;
+            const hh = tooltip.node().getBBox().height;
+			if(xz(x0) >= innerWidth + 1){
+				dot.attr('visibility', 'hidden').attr('opacity', 0);
+				tooltip.attr('visibility', 'hidden').attr('opacity', 0);
+			} else{
+				dot.attr('visibility', 'visible').attr('opacity', 1).attr('transform', `translate(${xz(x0)}, ${yz(d.value)})`);
+				tooltip.attr('visibility', 'visible').attr('opacity', 1);
+				if(xz(x0) < margin.left+margin.right){
+					tooltip.attr('transform', `translate(${xz(x0)+5}, ${yz(d.value) - hh/2})`);
+					text.attr('transform', `translate(8, 0)`);
+					tooltip.selectAll('path')
+						.attr('d', balloon(xx, ww, 'l'));
+				} else{
+					if(yz(d.value) < 65){
+						tooltip.attr('transform', `translate(${xz(x0)}, ${yz(d.value)+10})`);
+						text.attr('transform', `translate(${-ww/2}, 0)`);
+						tooltip.selectAll('path')
+							.attr('d', balloon(xx, ww, 'd'));
+					} else{
+						tooltip.attr('transform', `translate(${xz(x0)}, ${yz(d.value)-hh-10})`);
+						text.attr('transform', `translate(${-ww/2}, 0)`);
+						tooltip.selectAll('path')
+							.attr('d', balloon(xx, ww, 'u'));
+					}
+				}
+            }
+        }
+    }
+
+	// click
+    const btns = document.querySelectorAll('.btns button');
+    btns.forEach((x) => {
+        x.addEventListener('click', () => {
+            x.classList.add('active');
+            siblings(x).forEach(el => el.classList.remove('active'));
+            const count = x.dataset.count == 'all'? datas.length: x.dataset.count*1;
+            rect.transition().call(zoom.scaleTo, datas.length / count)
+				.transition().duration(0).call(zoom.translateTo, datas[0].date, datas[0].value);
+        })
+    });
+
+    // make balloon
+    function balloon(posx, ww, direction){
+        if(direction == 'u'){
+            return `M${-ww/2+3} 0.5 L${ww/2+posx+5} 0.5 C${ww/2+posx+8} 0.5 ${ww/2+posx+8} 0.5 ${ww/2+posx+8} 3.5 L${ww/2+posx+8} 41.5 C ${ww/2+posx+8} 44.5 ${ww/2+posx+8} 44.5 ${ww/2+posx+5} 44.5 L${posx/2+1} 44.5 L${posx/2-4} 50.5 L ${posx/2-9} 44.5 L ${-ww/2+3} 44.5 C${-ww/2} 44.5 ${-ww/2} 44.5 ${-ww/2} 41.5 L${-ww/2} 3.5 C ${-ww/2} 0.5 ${-ww/2} 0.5 ${-ww/2+3} 0.5`
+        } else if(direction == 'd'){
+            return `M${-ww/2+3} 0.5 L${posx/2-9} 0.5 L${posx/2-4} -5.5 L${posx/2+1} 0.5 L${ww/2+posx+5} 0.5 C${ww/2+posx+8} 0.5 ${ww/2+posx+8} 0.5 ${ww/2+posx+8} 3.5 L${ww/2+posx+8} 41.5 C${ww/2+posx+8} 44.5 ${ww/2+posx+8} 44.5 ${ww/2+posx+5} 44.5 L${-ww/2+3} 44.5 C${-ww/2} 44.5 ${-ww/2} 44.5 ${-ww/2} 41.5 L${-ww/2} 3.5 C${-ww/2} 0.5 ${-ww/2} 0.5 ${-ww/2+3} 0.5`
+        } else if(direction == 'l'){
+            return `M 11 0.5 L ${ww+posx+11} 0.5 C ${ww+posx+14} 0.5 ${ww+posx+14} 0.5 ${ww+posx+14} 3.5 L ${ww+posx+14} 41.5 C ${ww+posx+14} 44.5 ${ww+posx+14} 44.5 ${ww+posx+11} 44.5 L 11 44.5 C 8 44.5 8 44.5 8 41.5 L 8 28 L 2 22 L 8 16 L 8 3.5 C 8 0.5 8 0.5 11 0.5`
+        }
+    }    
+
+
+    // siblings
+    function siblings(el){
+        var targets = el.parentElement.children;
+        return [...targets].filter(node => node != el);
+    }
+
+</script>

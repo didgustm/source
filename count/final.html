@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body, html{background:#000; color:#fff}
+        *{margin: 0; padding: 0}
+        ul{list-style: none}
+        .fl{float:left}
+        .clear::after{content:""; display:block; clear:both}
+        .avg{margin-left:50px; font-size:15px}
+        .num{width:9px; height:16px; overflow:hidden}
+        .num ul{position:relative; height:16px; transition-property:transform; transition-timing-function:linear}
+        .num ul li{height:16px; line-height:16px}
+    </style>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <title>count</title>
+</head>
+<body>
+    <div class="avg clear" data-avg="4.1">
+        <div class="num n1 fl">
+            <ul class="">
+                <li class=" active">0</li>
+                <li class="">1</li>
+                <li class="">2</li>
+                <li class="">3</li>
+                <li class="">4</li>
+                <li class="">5</li>
+            </ul>
+        </div>
+        <span class="dot fl">.</span>
+        <div class="num n2 fl">
+            <ul class="">
+                <li class="">0</li>
+                <li class="">1</li>
+                <li class="">2</li>
+                <li class="">3</li>
+                <li class="">4</li>
+                <li class="">5</li>
+                <li class="">6</li>
+                <li class="">7</li>
+                <li class="">8</li>
+                <li class="">9</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        // SCORE
+        var score = document.querySelector('.avg').dataset.avg;
+        var sc1 = parseInt(score.split('.')[0]);
+        var sc2 = parseInt(score.split('.')[1]);
+
+        /* ROLLING */
+        var roll = document.querySelectorAll('.num ul');
+        var count = 0;
+        var timer1;
+        var timer2;
+        var last = [];
+        // copy
+        for(var i = 0; i < 2; i++){
+            last[i] = roll[i].lastElementChild.cloneNode(true);
+            last[i].innerHTML = 0;
+            last[i].className += 'clone'
+            roll[i].appendChild(last[i]);
+        }
+
+        function nextTo(wrap, spd1, spd2, end){
+            var now = document.querySelector('.active');
+            var max = roll[1].childElementCount;
+            
+            // timer1 = setInterval(function(){
+                roll[1].style.transform = 'translate(0, ' + count * -16 + 'px)';
+                roll[1].style.transitionDuration = 100 + 'ms';
+                count ++;
+                if(count === max){
+                    setTimeout(function(){
+                        roll[1].style.transform = 'translate(0)';
+                        roll[1].style.transitionDuration = '0s';
+                    }, 101);
+                    count = 1;
+                }
+            //}, 150);
+            //setTimeout(function(){
+            //    clearInterval(timer1);
+            //    roll[0].style.transitionDuration = 500 + 'ms';
+            //    roll[0].style.transform = 'translate(0, ' + sc1 * -16 + 'px)';
+            //}, 2500);
+        }
+        //nextTo()
+
+        var cycle = 150;
+
+        var timer = setInterval(nextTo, cycle);
+
+        setTimeout(function(){
+            clearInterval(timer);
+            roll[1].style.transitionDuration = 1000 + 'ms';
+            roll[1].style.transform = 'translate(0, ' + sc2 * -16 + 'px)';
+        }, 2500);
+    </script>
+</body>
+</html>

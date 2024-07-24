@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body, html{background:#000; color:#fff}
+        *{margin: 0; padding: 0}
+        ul{list-style: none}
+        .fl{float:left}
+        .clear::after{content:""; display:block; clear:both}
+        .avg{margin-left:50px; font-size:15px}
+        .num{width:9px; height:16px; overflow:hidden}
+        .num ul{position:relative; height:16px; transition-property:transform; transition-timing-function:linear}
+        .num ul li{height:16px; line-height:16px}
+    </style>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <title>count</title>
+</head>
+<body>
+    <div class="avg clear" data-avg="4.9">
+        <div class="num n1 fl">
+            <ul class="">
+                <li class=" active">0</li>
+                <li class="">1</li>
+                <li class="">2</li>
+                <li class="">3</li>
+                <li class="">4</li>
+                <li class="">5</li>
+            </ul>
+        </div>
+        <span class="dot fl">.</span>
+        <div class="num n2 fl">
+            <ul class="">
+                <li class="">0</li>
+                <li class="">1</li>
+                <li class="">2</li>
+                <li class="">3</li>
+                <li class="">4</li>
+                <li class="">5</li>
+                <li class="">6</li>
+                <li class="">7</li>
+                <li class="">8</li>
+                <li class="">9</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        // SCORE
+        var score = document.querySelector('.avg').dataset.avg;
+        var sc1 = parseInt(score.split('.')[0]);
+        var sc2 = parseInt(score.split('.')[1]);
+
+        /* ROLLING */
+        var roll = document.querySelectorAll('.num ul');
+        // var ing = false;
+        var vy = -16;
+        var count = 0;
+        var timer1;
+        var timer2;
+        var speed = 1000;
+        var first = [];
+        var last = [];
+        var lastNum = [];
+        // copy
+        for(var i = 0; i < 2; i++){
+            first[i] = roll[i].lastElementChild.cloneNode(true);
+            first[i].className += 'clone';
+            last[i] = roll[i].lastElementChild.cloneNode(true);
+            last[i].innerHTML = 0;
+            last[i].className += 'clone'
+            // roll[i].prepend(first[i]);
+            roll[i].appendChild(last[i]);
+        }
+
+        function nextTo(){
+            var now = document.querySelector('.active');
+            var next = now.nextElementSibling;
+            var max = roll[0].childElementCount;
+            
+            
+            setInterval(function(){
+                roll[0].style.transform = 'translate(0, ' + count * -16 + 'px)';
+                roll[0].style.transitionDuration = 200 + 'ms';
+                count ++;
+                if(count === max){
+                    setTimeout(function(){
+                        roll[0].style.transform = 'translate(0)';
+                        roll[0].style.transitionDuration = '0s';
+                    }, 201);
+                    count = 1;
+                }
+            }, 230);
+            // now.className = now.className.replace(' active', '');
+            // if(count === max){
+            //     count = 1;
+            //     roll[0].firstElementChild.nextElementSibling.className += ' active';
+            // } else{
+            //     next.className += ' active';
+            // }
+        }
+        nextTo()
+        function prevTo(){
+            var now = document.querySelector('.active');
+            var prev = now.previousElementSibling;
+            var max = roll[0].childElementCount;
+            count--;
+            now.className = now.className.replace(' active', '');
+            if(count < 0){
+                count = max - 1;
+                roll[0].lastElementChild.className += ' active';
+            } else{
+                prev.className += ' active';
+            }
+        }
+
+        function animating(){
+            var activeIndex = $('.n1 li.active').index();
+            // console.log(activeIndex);
+            roll[0].style.transform = 'translate(0, ' + activeIndex * -16 + 'px)';
+            roll[0].style.transitionDuration = 300 + 'ms';
+            console.log(activeIndex);
+        }
+
+        // timer = setInterval(function(){
+        //     nextTo();
+        //     // animating();
+        // }, speed);
+
+
+
+
+
+
+
+        function rolling(){
+            // var speed = parseFloat(window.getComputedStyle(roll[0]).transitionDuration.replace('s', '')) * 1000;
+            // roll[0].style.transform = 'translate3d(0, ' + vy + 'px, 0)';
+            if(vy === (roll[0].childElementCount-1) * -16){
+                roll[0].style.transitionDuration = '0s';
+                roll[0].style.transform = 'translate(0, -16px)';
+                vy = -16;
+            } else{
+                vy -= 16;
+                roll[0].style.transitionDuration = '0.6s';
+            }
+            
+        }
+        // rolling();
+        // setInterval(rolling, 600);
+        /* //ROLLING */
+    </script>
+</body>
+</html>

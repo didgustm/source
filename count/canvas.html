@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>canvas count</title>
+    <style>
+        .wrap{height:16px; overflow:hidden}
+    </style>
+</head>
+<body>
+    <div class="wrap"><canvas id="can1"></canvas></div>
+    <span class="dot">.</span>
+    <canvas id="can2"></canvas>
+    <script>
+        var canvas = document.getElementById('can1');
+        //canvas.width = 9;
+        canvas.height = 80;
+        var can1 = canvas.getContext('2d');
+        var count1 = [];
+        var max1 = 5;
+        var vy = 1.5;
+        var timer;
+        can1.font = '15px "spoqa han sans"';
+        
+        for(var i = 0; i <= max1; i++){
+            var num = {
+                y: (i+1)*16,
+            }
+            count1.push(num);
+        }
+
+        function update(){
+            for(var i = 0; i <= max1; i++){
+                var score = count1[i];
+                if(score.y < -16){
+                    score.y = canvas.height;
+                }
+
+                score.y -= vy;
+            }
+        }
+
+        function draw(){
+            can1.fillStyle = '#fff',
+            can1.fillRect(0, 0, canvas.width, canvas.height);
+
+            can1.fillStyle = '#000';
+            for(var i = 0; i <= max1; i++){
+                var score = count1[i];
+                can1.fillText(i, 0, score.y);
+            }
+            
+        }
+
+        timer = setInterval(function(){
+            draw();
+            update();
+        }, 15);
+        
+        
+    </script>
+</body>
+</html>
